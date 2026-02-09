@@ -28,10 +28,11 @@ func main() {
 	app.Get("/profile/:id", handlers.GetProfile)
 
 	app.Get("/jobs", handlers.ListJobs)
-	app.Get("/jobs/:id", handlers.GetJob)
-
+	
 	// Protected
 	protected := app.Group("", middleware.AuthRequired())
+	protected.Get("/jobs/:id", handlers.GetJob)
+	protected.Post("/ai/extract-skills", handlers.ExtractSkills)
 	protected.Get("/me", handlers.Me)
 	protected.Put("/profile", handlers.UpdateProfile)
 	protected.Post("/jobs", handlers.CreateJob)
