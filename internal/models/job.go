@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Job represents a job posting in the RizeJobs platform
+// Job represents a job posting in the Job Portal platform
 //
 // Fields:
 // - ID: Unique identifier (UUID), primary key in database

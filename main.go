@@ -1,6 +1,6 @@
-// Package main initializes and runs the RizeJobs API server
+// Package main initializes and runs the Job Portal API server
 //
-// RizeJobs Backend Server
+// Job Portal Backend Server
 // Purpose: REST API for AI-powered job matching with blockchain payments
 // Port: 8080 (configurable via PORT env var)
 //
@@ -66,6 +66,9 @@ func main() {
 
 	// User registration endpoint
 	// POST /auth/register { name, email, password }
+	app.Head("/health", func(c *fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
+	})
 	app.Post("/auth/register", handlers.Register)
 
 	// User login endpoint
@@ -81,7 +84,7 @@ func main() {
 	app.Get("/jobs", handlers.ListJobs)
 
 	// PROTECTED ROUTES (JWT authentication required)
-	
+
 	// All routes in this group require valid Authorization header
 	// Format: Authorization: Bearer <token>
 	//

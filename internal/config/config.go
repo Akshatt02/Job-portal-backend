@@ -1,4 +1,4 @@
-// Package config handles environment configuration loading for the RizeJobs backend.
+// Package config handles environment configuration loading for the Job Portal backend.
 //
 // This package loads all required environment variables from the system or .env file.
 // For deployment, ensure all required variables are set in the deployment environment.
