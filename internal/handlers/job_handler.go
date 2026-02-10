@@ -41,13 +41,25 @@ func CreateJob(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "title and description required"})
 	}
 
+	if req.PaymentTxHash == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "payment_tx_hash is required - blockchain payment must be completed first"})
+	}
+
 	jobID, err := services.CreateJob(req.Title, req.Description, req.Skills, req.Salary, req.Location, uidStr, req.PaymentTxHash)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		// Return appropriate error messages for different failure scenarios
+		errorMsg := err.Error()
+		if errorMsg == "invalid transaction hash format" {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid transaction hash format - must be a valid Ethereum transaction hash"})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": errorMsg})
 	}
 
 	// Respond with created job id
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"id": jobID})
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"id":      jobID,
+		"message": "Job posted successfully with blockchain payment confirmation",
+	})
 }
 
 // GET /jobs

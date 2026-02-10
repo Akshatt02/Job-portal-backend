@@ -26,6 +26,11 @@ func CreateJob(title, description string, skills []string, salary, location, use
 		return "", errors.New("payment required before posting job (payment_tx_hash missing)")
 	}
 
+	// Validate transaction hash format (must be 66 characters starting with 0x)
+	if len(paymentTx) != 66 || paymentTx[:2] != "0x" {
+		return "", errors.New("invalid transaction hash format")
+	}
+
 	jobID := uuid.New()
 	skillsBytes := []byte("null")
 	if skills != nil {
@@ -64,13 +69,13 @@ func ListJobs(limit int) ([]*models.Job, error) {
 	out := []*models.Job{}
 	for rows.Next() {
 		var (
-			id uuid.UUID
+			id                 uuid.UUID
 			title, description string
-			skillsRaw []byte
-			salary, location string
-			userID uuid.UUID
-			paymentTx *string
-			createdAt time.Time
+			skillsRaw          []byte
+			salary, location   string
+			userID             uuid.UUID
+			paymentTx          *string
+			createdAt          time.Time
 		)
 		err := rows.Scan(&id, &title, &description, &skillsRaw, &salary, &location, &userID, &paymentTx, &createdAt)
 		if err != nil {
@@ -88,15 +93,15 @@ func ListJobs(limit int) ([]*models.Job, error) {
 		}
 
 		job := &models.Job{
-			ID: id,
-			Title: title,
-			Description: description,
-			Skills: skills,
-			Salary: salary,
-			Location: location,
-			UserID: userID,
+			ID:            id,
+			Title:         title,
+			Description:   description,
+			Skills:        skills,
+			Salary:        salary,
+			Location:      location,
+			UserID:        userID,
 			PaymentTxHash: px,
-			CreatedAt: createdAt,
+			CreatedAt:     createdAt,
 		}
 		out = append(out, job)
 	}
@@ -111,11 +116,11 @@ func GetJobByID(jobIDStr string) (*models.Job, error) {
 
 	var (
 		title, description string
-		skillsRaw []byte
-		salary, location string
-		userID uuid.UUID
-		paymentTx *string
-		createdAt time.Time
+		skillsRaw          []byte
+		salary, location   string
+		userID             uuid.UUID
+		paymentTx          *string
+		createdAt          time.Time
 	)
 	err = db.Pool.QueryRow(context.Background(),
 		`SELECT title, description, skills, salary, location, user_id, payment_tx_hash, created_at
@@ -136,15 +141,15 @@ func GetJobByID(jobIDStr string) (*models.Job, error) {
 	}
 
 	j := &models.Job{
-		ID: id,
-		Title: title,
-		Description: description,
-		Skills: skills,
-		Salary: salary,
-		Location: location,
-		UserID: userID,
+		ID:            id,
+		Title:         title,
+		Description:   description,
+		Skills:        skills,
+		Salary:        salary,
+		Location:      location,
+		UserID:        userID,
 		PaymentTxHash: pt,
-		CreatedAt: createdAt,
+		CreatedAt:     createdAt,
 	}
 	return j, nil
 }
