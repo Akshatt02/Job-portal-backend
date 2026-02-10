@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
-
+"log"
+"strconv"
 	"github.com/Akshatt02/job-portal-backend/internal/db"
 	"github.com/Akshatt02/job-portal-backend/internal/models"
 	"github.com/google/uuid"
@@ -192,34 +193,33 @@ func ListJobsWithFilters(limit int, skill, location string, salaryMin int) ([]*m
 		limit = 100
 	}
 
-	query := `SELECT id, title, description, skills, salary, location, user_id, payment_tx_hash, created_at
-	          FROM jobs
-	          WHERE 1=1`
+	query := `
+		SELECT id, title, description, skills, salary, location, user_id, payment_tx_hash, created_at
+		FROM jobs
+		WHERE 1=1
+	`
+
 	var args []interface{}
 	argCount := 1
 
-	// Filter by skill (check if skill exists in JSON array)
 	if skill != "" {
-		query += ` AND skills::text ILIKE '%' || $` + string(rune(argCount)) + ` || '%'`
+		query += ` AND skills::text ILIKE '%' || $` + strconv.Itoa(argCount) + ` || '%'`
 		args = append(args, skill)
 		argCount++
 	}
 
-	// Filter by location (case-insensitive)
 	if location != "" {
-		query += ` AND location ILIKE $` + string(rune(argCount))
+		query += ` AND location ILIKE $` + strconv.Itoa(argCount)
 		args = append(args, "%"+location+"%")
 		argCount++
 	}
 
-	// Note: salaryMin filtering is numeric but salary field is VARCHAR
-	// You can implement numeric filtering if you store salary differently
-
-	query += ` ORDER BY created_at DESC LIMIT $` + string(rune(argCount))
+	query += ` ORDER BY created_at DESC LIMIT $` + strconv.Itoa(argCount)
 	args = append(args, limit)
 
 	rows, err := db.Pool.Query(context.Background(), query, args...)
 	if err != nil {
+		log.Println("DB ERROR:", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -235,7 +235,11 @@ func ListJobsWithFilters(limit int, skill, location string, salaryMin int) ([]*m
 			paymentTx          *string
 			createdAt          time.Time
 		)
-		err := rows.Scan(&id, &title, &description, &skillsRaw, &salary, &location, &userID, &paymentTx, &createdAt)
+
+		err := rows.Scan(
+			&id, &title, &description, &skillsRaw,
+			&salary, &location, &userID, &paymentTx, &createdAt,
+		)
 		if err != nil {
 			return nil, err
 		}
