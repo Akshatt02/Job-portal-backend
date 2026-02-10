@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/Akshatt02/job-portal-backend/internal/db"
@@ -51,10 +52,10 @@ func CreatePost(userID, content string) (string, error) {
 // - posts: Slice of Post objects with user details
 // - error: if database query fails
 //
-// Includes user name and bio for each post (via JOIN with users table)
+// Includes user name for each post (via JOIN with users table)
 func GetPosts(limit int) ([]models.Post, error) {
 	query := `
-		SELECT p.id, p.user_id, u.name, u.bio, p.content, p.created_at
+		SELECT p.id, p.user_id, u.name, p.content, p.created_at
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		ORDER BY p.created_at DESC
@@ -70,7 +71,8 @@ func GetPosts(limit int) ([]models.Post, error) {
 	var posts []models.Post
 	for rows.Next() {
 		var p models.Post
-		if err := rows.Scan(&p.ID, &p.UserID, &p.UserName, &p.UserBio, &p.Content, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.UserName, &p.Content, &p.CreatedAt); err != nil {
+			log.Println(err)
 			return nil, err
 		}
 		posts = append(posts, p)
@@ -93,7 +95,7 @@ func GetPosts(limit int) ([]models.Post, error) {
 // - error: if database query fails
 func GetUserPosts(userID string) ([]models.Post, error) {
 	query := `
-		SELECT p.id, p.user_id, u.name, u.bio, p.content, p.created_at
+		SELECT p.id, p.user_id, u.name, p.content, p.created_at
 		FROM posts p
 		JOIN users u ON p.user_id = u.id
 		WHERE p.user_id = $1
@@ -109,7 +111,7 @@ func GetUserPosts(userID string) ([]models.Post, error) {
 	var posts []models.Post
 	for rows.Next() {
 		var p models.Post
-		if err := rows.Scan(&p.ID, &p.UserID, &p.UserName, &p.UserBio, &p.Content, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.UserID, &p.UserName, &p.Content, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		posts = append(posts, p)
