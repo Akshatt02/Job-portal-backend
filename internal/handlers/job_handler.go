@@ -82,13 +82,50 @@ func CreateJob(c *fiber.Ctx) error {
 
 // ListJobs handles public job listing (GET /jobs).
 // No authentication required - returns all available job postings.
+// Supports filtering by skill, location.
+//
+// Query Parameters:
+// - ?skill=go - Filter by required skill
+// - ?location=remote - Filter by location (case-insensitive, partial match)
+// - ?limit=20 - Number of jobs to return (default: 50, max: 100)
+//
+// Examples:
+// - GET /jobs - All jobs
+// - GET /jobs?skill=react&location=remote - React jobs in Remote locations
+// - GET /jobs?location=New%20York&limit=10 - First 10 jobs in New York
 //
 // Returns: Array of jobs ordered by newest first (created_at DESC)
 func ListJobs(c *fiber.Ctx) error {
-	// optional ?limit= query can be added later
-	jobs, err := services.ListJobs(100)
+	limit := c.QueryInt("limit", 50)
+	if limit > 100 {
+		limit = 100
+	}
+	if limit < 1 {
+		limit = 1
+	}
+
+	skill := c.Query("skill")
+	location := c.Query("location")
+
+	// If filters provided, use filtered query
+	if skill != "" || location != "" {
+		jobs, err := services.ListJobsWithFilters(limit, skill, location, 0)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to list jobs"})
+		}
+		if jobs == nil {
+			jobs = []*models.Job{}
+		}
+		return c.JSON(jobs)
+	}
+
+	// Otherwise use basic list
+	jobs, err := services.ListJobs(limit)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to list jobs"})
+	}
+	if jobs == nil {
+		jobs = []*models.Job{}
 	}
 	return c.JSON(jobs)
 }

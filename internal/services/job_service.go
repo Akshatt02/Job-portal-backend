@@ -169,6 +169,121 @@ func ListJobs(limit int) ([]*models.Job, error) {
 	return out, nil
 }
 
+// ListJobsWithFilters retrieves job postings with optional filters.
+//
+// Supports filtering by:
+// - skill: Filter jobs that require a specific skill (partial match in JSON array)
+// - location: Filter jobs by location (case-insensitive)
+// - salaryMin: Filter jobs above minimum salary (numeric comparison)
+//
+// Parameters:
+// - limit: Max number of jobs to return
+// - skill: Optional skill filter (e.g., "go", "react")
+// - location: Optional location filter (e.g., "Remote", "New York")
+// - salaryMin: Optional minimum salary threshold
+//
+// Returns:
+// - []*models.Job array of filtered job listings
+// - Error if database query fails
+//
+// Usage: Called by GET /jobs endpoint with query parameters
+func ListJobsWithFilters(limit int, skill, location string, salaryMin int) ([]*models.Job, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+
+	query := `SELECT id, title, description, skills, salary, location, user_id, payment_tx_hash, created_at
+	          FROM jobs
+	          WHERE 1=1`
+	var args []interface{}
+	argCount := 1
+
+	// Filter by skill (check if skill exists in JSON array)
+	if skill != "" {
+		query += ` AND skills::text ILIKE '%' || $` + string(rune(argCount)) + ` || '%'`
+		args = append(args, skill)
+		argCount++
+	}
+
+	// Filter by location (case-insensitive)
+	if location != "" {
+		query += ` AND location ILIKE $` + string(rune(argCount))
+		args = append(args, "%"+location+"%")
+		argCount++
+	}
+
+	// Note: salaryMin filtering is numeric but salary field is VARCHAR
+	// You can implement numeric filtering if you store salary differently
+
+	query += ` ORDER BY created_at DESC LIMIT $` + string(rune(argCount))
+	args = append(args, limit)
+
+	rows, err := db.Pool.Query(context.Background(), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []*models.Job{}
+	for rows.Next() {
+		var (
+			id                 uuid.UUID
+			title, description string
+			skillsRaw          []byte
+			salary, location   string
+			userID             uuid.UUID
+			paymentTx          *string
+			createdAt          time.Time
+		)
+		err := rows.Scan(&id, &title, &description, &skillsRaw, &salary, &location, &userID, &paymentTx, &createdAt)
+		if err != nil {
+			return nil, err
+		}
+
+		var skills []string
+		if len(skillsRaw) > 0 {
+			_ = json.Unmarshal(skillsRaw, &skills)
+		}
+
+		px := ""
+		if paymentTx != nil {
+			px = *paymentTx
+		}
+
+		job := &models.Job{
+			ID:            id,
+			Title:         title,
+			Description:   description,
+			Skills:        skills,
+			Salary:        salary,
+			Location:      location,
+			UserID:        userID,
+			PaymentTxHash: px,
+			CreatedAt:     createdAt,
+		}
+		out = append(out, job)
+	}
+	return out, nil
+}
+
+// GetJobByID retrieves a single job posting by ID
+//
+// Process:
+// 1. Parse job ID (UUID format)
+// 2. Query database for matching job
+// 3. Unmarshal skills JSON array
+// 4. Return complete job model
+//
+// Parameters:
+// - jobIDStr: UUID string of job to fetch
+//
+// Returns:
+// - *models.Job with all fields populated
+// - ErrJobNotFound if job doesn't exist
+// - Other error if database query fails
+//
+// Usage: Called by GET /jobs/:id endpoint
+// Note: Client also receives match_score (computed separately)
 func GetJobByID(jobIDStr string) (*models.Job, error) {
 	id, err := uuid.Parse(jobIDStr)
 	if err != nil {

@@ -83,6 +83,14 @@ func main() {
 	// GET /jobs -> returns array of job listings
 	app.Get("/jobs", handlers.ListJobs)
 
+	// List all posts from social feed (browseable by anyone)
+	// GET /posts -> returns array of user posts
+	app.Get("/posts", handlers.GetPosts)
+
+	// Get user's posts (public user profile posts)
+	// GET /posts/:user_id -> returns posts by specific user
+	app.Get("/posts/:user_id", handlers.GetUserPosts)
+
 	// PROTECTED ROUTES (JWT authentication required)
 
 	// All routes in this group require valid Authorization header
@@ -110,6 +118,10 @@ func main() {
 	// Extract skills from resume/bio text using AI
 	// POST /ai/extract-skills { bio } -> returns { skills: [...] }
 	protected.Post("/ai/extract-skills", handlers.ExtractSkills)
+
+	// Create a new social feed post (career advice, updates)
+	// POST /posts { content } -> returns { id, message }
+	protected.Post("/posts", handlers.CreatePost)
 
 	// Start HTTP server
 	log.Println("Starting server on port", cfg.Port)
