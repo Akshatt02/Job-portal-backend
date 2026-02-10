@@ -5,10 +5,9 @@ import (
 
 	"github.com/Akshatt02/job-portal-backend/internal/models"
 	"github.com/Akshatt02/job-portal-backend/internal/services"
-	// "github.com/Akshatt02/job-portal-backend/internal/models"
 )
 
-// payload for creating job
+// createJobRequest represents the JSON payload for creating a new job posting.
 type createJobRequest struct {
 	Title         string   `json:"title"`
 	Description   string   `json:"description"`
@@ -18,13 +17,32 @@ type createJobRequest struct {
 	PaymentTxHash string   `json:"payment_tx_hash,omitempty"`
 }
 
-// response for getting job with match score
+// jobWithScoreResponse represents a job with its AI-computed match score.
 type jobWithScoreResponse struct {
 	*models.Job `json:"job"`
 	MatchScore  int `json:"match_score"`
 }
 
-// POST /jobs (protected)
+// CreateJob handles job posting creation (POST /jobs).
+// Requires: Authorization: Bearer <token>
+// Request body:
+//
+//	{
+//	  "title": "Senior Go Developer",
+//	  "description": "Looking for experienced Go developer...",
+//	  "location": "Remote",
+//	  "salary": "$120k-150k",
+//	  "skills": ["go", "postgresql", "docker"],
+//	  "payment_tx_hash": "0x123abc...(66 chars)"
+//	}
+//
+// Payment Requirements:
+// - payment_tx_hash: Ethereum Sepolia transaction hash (format: 0x + 64 hex chars)
+// - Must be a valid transaction from user to platform wallet (0.001 SETH)
+// - Validates format before accepting job posting
+//
+// Response on success (201 Created):
+// { "id": "job-uuid", "message": "Job posted successfully with blockchain payment confirmation" }
 func CreateJob(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
 	if userID == nil {
@@ -62,7 +80,10 @@ func CreateJob(c *fiber.Ctx) error {
 	})
 }
 
-// GET /jobs
+// ListJobs handles public job listing (GET /jobs).
+// No authentication required - returns all available job postings.
+//
+// Returns: Array of jobs ordered by newest first (created_at DESC)
 func ListJobs(c *fiber.Ctx) error {
 	// optional ?limit= query can be added later
 	jobs, err := services.ListJobs(100)
@@ -72,7 +93,13 @@ func ListJobs(c *fiber.Ctx) error {
 	return c.JSON(jobs)
 }
 
-// GET /jobs/:id (protected)
+// GetJob handles job detail retrieval with skill match scoring (GET /jobs/:id).
+// Returns the job posting along with a personalized match score based on the
+// authenticated user's skills compared to job requirements.
+//
+// Requires: Authorization: Bearer <token>
+// Returns: { job: {...}, match_score: 85 }
+// - match_score: 0-100% indicating how well user's skills match the job
 func GetJob(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {

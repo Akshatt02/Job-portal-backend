@@ -13,7 +13,35 @@ import (
 
 var ErrJobNotFound = errors.New("job not found")
 
-// CreateJob creates a job row and returns the created job id.
+// CreateJob creates a new job posting
+//
+// Blockchain Payment Requirement:
+// - User must provide paymentTx (Sepolia ETH transaction hash)
+// - Hash format: "0x" + 64 hexadecimal characters (66 chars total)
+// - Validates format but does NOT verify transaction on-chain
+//
+// Process:
+// 1. Parse and validate user ID (UUID format)
+// 2. Require payment_tx_hash for security/audit trail
+// 3. Validate transaction hash format
+// 4. Generate UUID for job
+// 5. Serialize skills array to JSON
+// 6. Insert into database with all metadata
+//
+// Parameters:
+// - title: Job position title
+// - description: Full job description
+// - skills: []string - Required skills (optional, can be nil)
+// - salary: Salary range or "Competitive" (optional)
+// - location: Job location
+// - userIDStr: UUID string of job poster
+// - paymentTx: Sepolia transaction hash (66 char format)
+//
+// Returns:
+// - Job ID (UUID string) on success
+// - Error if validation fails or database error
+//
+// Usage: Called by POST /jobs handler after blockchain payment
 func CreateJob(title, description string, skills []string, salary, location, userIDStr, paymentTx string) (string, error) {
 	// Ensure user id is valid uuid
 	userID, err := uuid.Parse(userIDStr)
@@ -50,7 +78,22 @@ func CreateJob(title, description string, skills []string, salary, location, use
 	return jobID.String(), nil
 }
 
-// ListJobs returns up to `limit` recent jobs. If limit is 0, defaults to 100.
+// ListJobs retrieves recent job postings
+//
+// Process:
+// 1. Query jobs table ordered by creation date (newest first)
+// 2. Limit results to specified count
+// 3. Unmarshal skills JSON arrays for each job
+// 4. Convert UUIDs to strings for API response
+//
+// Parameters:
+// - limit: Max number of jobs to return. If <= 0, defaults to 100
+//
+// Returns:
+// - []*models.Job array of job listings
+// - Error if database query fails
+//
+// Usage: Called by GET /jobs endpoint (public, no auth required)
 func ListJobs(limit int) ([]*models.Job, error) {
 	if limit <= 0 {
 		limit = 100
@@ -93,6 +136,24 @@ func ListJobs(limit int) ([]*models.Job, error) {
 		}
 
 		job := &models.Job{
+			// GetJobByID retrieves a single job posting by ID
+			//
+			// Process:
+			// 1. Parse job ID (UUID format)
+			// 2. Query database for matching job
+			// 3. Unmarshal skills JSON array
+			// 4. Return complete job model
+			//
+			// Parameters:
+			// - jobIDStr: UUID string of job to fetch
+			//
+			// Returns:
+			// - *models.Job with all fields populated
+			// - ErrJobNotFound if job doesn't exist
+			// - Other error if database query fails
+			//
+			// Usage: Called by GET /jobs/:id endpoint
+			// Note: Client also receives match_score (computed separately)
 			ID:            id,
 			Title:         title,
 			Description:   description,

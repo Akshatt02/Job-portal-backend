@@ -1,3 +1,4 @@
+// Profile handler contains endpoints for user profile management.
 package handlers
 
 import (
@@ -6,6 +7,7 @@ import (
 	"github.com/Akshatt02/job-portal-backend/internal/services"
 )
 
+// updateProfileRequest represents the JSON payload for profile updates.
 type updateProfileRequest struct {
 	Name          *string  `json:"name,omitempty"`
 	Bio           *string  `json:"bio,omitempty"`
@@ -14,7 +16,10 @@ type updateProfileRequest struct {
 	WalletAddress *string  `json:"wallet_address,omitempty"`
 }
 
-// GET /profile/:id
+// GetProfile handles public profile viewing (GET /profile/:id).
+// No authentication required - returns limited public user information.
+//
+// Returns: { id, name, bio, linkedin_url, skills }
 func GetProfile(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
@@ -29,7 +34,11 @@ func GetProfile(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// GET /me
+// Me handles authenticated user profile retrieval (GET /me).
+// Returns the complete profile of the currently logged-in user.
+//
+// Requires: Authorization: Bearer <token>
+// Returns: { id, name, email, bio, linkedin_url, skills, wallet_address }
 func Me(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
 	if userID == nil {
@@ -44,7 +53,21 @@ func Me(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-// PUT /profile  (auth required)
+// UpdateProfile handles profile updates for authenticated users (PUT /profile).
+// Supports partial updates - only provided fields are modified.
+//
+// Requires: Authorization: Bearer <token>
+// Request body (all fields optional):
+//
+//	{
+//	  "name": "New Name",
+//	  "bio": "Bio text",
+//	  "linkedin_url": "https://linkedin.com/in/username",
+//	  "wallet_address": "0x123...",
+//	  "skills": ["go", "react", "postgres"]
+//	}
+//
+// Response on success (200 OK): { message: "Profile updated successfully" }
 func UpdateProfile(c *fiber.Ctx) error {
 	userID := c.Locals("user_id")
 	if userID == nil {

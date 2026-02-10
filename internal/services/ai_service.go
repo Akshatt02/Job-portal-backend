@@ -14,14 +14,34 @@ import (
 
 // NOTE: This file uses the official Google GenAI SDK for Go.
 // Install it with: go get google.golang.org/genai
-// The client reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY).
+// The client reads the API key from GEMINI_API_KEY (or GOOGLE_API_KEY environment variable).
+//
+// Setup:
+// 1. Get API key from Google AI Studio: https://aistudio.google.com/app/apikey
+// 2. Set environment variable: export GEMINI_API_KEY="your-api-key"
+// 3. Ensure google.golang.org/genai is in direct dependencies
 
 const (
-	// model to use; quickstart uses "gemini-3-flash-preview" in examples.
+	// geminiModel specifies which Google Gemini model to use for AI operations.
+	// Using gemini-3-flash-preview for fast, cost-effective processing.
 	geminiModel = "gemini-3-flash-preview"
 )
 
-// ExtractSkillsFromText calls Gemini and asks it to return a JSON array of skills.
+// ExtractSkillsFromText analyzes the provided text and extracts professional skills.
+// Uses Google Gemini API to intelligently identify relevant skills from bio/resume.
+//
+// Parameters:
+// - ctx: Context for API call (controls timeout and cancellation)
+// - bio: Text containing professional experience, skills, qualifications
+//
+// Returns:
+// - skills: Slice of extracted skill names (e.g., ["go", "react", "postgresql"])
+// - error: Returns non-nil if:
+//   - bio is empty
+//   - API call fails
+//   - Response cannot be parsed
+//
+// Skill Format: Lower-case, short names (go, react, nodejs, sql, etc.)
 func ExtractSkillsFromText(ctx context.Context, bio string) ([]string, error) {
 	if strings.TrimSpace(bio) == "" {
 		return nil, errors.New("bio is empty")
@@ -40,7 +60,22 @@ func ExtractSkillsFromText(ctx context.Context, bio string) ([]string, error) {
 	return parseStringArray(out)
 }
 
-// ComputeMatchScore returns an integer 0..100 score for how well userSkills match the jobDescription.
+// ComputeMatchScore evaluates how well a user's skills match a job description.
+// Returns a percentage score (0-100) indicating compatibility.
+//
+// Parameters:
+// - ctx: Context for API call
+// - userSkills: Array of user's skills (e.g., ["go", "react", "postgresql"])
+// - jobDescription: The full job posting text to analyze
+//
+// Returns:
+// - score: Integer 0-100 (0=no match, 100=perfect match)
+// - error: Returns non-nil if API call fails or response cannot be parsed
+//
+// Algorithm:
+// 1. Sends user skills and job description to Gemini
+// 2. AI analyzes skill relevance and experience requirements
+// 3. Returns confidence score as percentage
 func ComputeMatchScore(ctx context.Context, userSkills []string, jobDescription string) (int, error) {
 	sys := "You are a helpful assistant that scores how well a candidate's skills match a job."
 	userPrompt := "Given the user's skills JSON array:\n" + toJSONString(userSkills) + "\n\nAnd the job description below:\n" + jobDescription + "\n\nReturn ONLY a JSON object with a single numeric field `match_score` with an integer value between 0 and 100 indicating the match percentage. Example: {\"match_score\":78}. Return no other text."
@@ -57,8 +92,21 @@ func ComputeMatchScore(ctx context.Context, userSkills []string, jobDescription 
 
 // ----------------- GenAI call helper -----------------
 
-// callGenAI uses the official genai client to call Gemini. The client reads GEMINI_API_KEY from the environment.
-// It includes a small retry loop for transient failures.
+// callGenAI is the internal function that communicates with Google Gemini API.
+// Includes automatic retry logic for transient failures (network issues, rate limiting).
+//
+// Parameters:
+// - ctx: Context with timeout (if not set, defaults to API timeout)
+// - prompt: The prompt/question to send to Gemini
+//
+// Returns:
+// - response: Full text response from Gemini
+// - error: Returns non-nil if all retry attempts fail
+//
+// Retry Logic:
+// - Attempts 3 retries with exponential backoff (1s, 2s, 4s)
+// - Useful for transient errors (network timeouts, temporary API unavailability)
+// - Preserves context cancellation (if ctx is cancelled, stops immediately)
 func callGenAI(ctx context.Context, prompt string) (string, error) {
 	client, err := genai.NewClient(ctx, nil)
 	if err != nil {
